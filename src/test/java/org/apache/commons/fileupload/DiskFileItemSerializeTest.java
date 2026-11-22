@@ -30,8 +30,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 
+import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.junit.Before;
 import org.junit.Test;
+
 
 /**
  * Serialization Unit tests for
@@ -41,7 +44,14 @@ import org.junit.Test;
  */
 public class DiskFileItemSerializeTest {
 
-    /**
+    private static final String ERRMSG_DISKFILEITEM_DESERIALIZED = "Property org.apache.commons.fileupload.disk.DiskFileItem.serializable is not true, rejecting to deserialize a DiskFileItem.";
+
+    @Before
+    public void setUp() {
+        System.setProperty(DiskFileItem.SERIALIZABLE_PROPERTY, "true");
+    }
+
+	/**
      * Content type for regular form items.
      */
     private static final String textContentType = "text/plain";
@@ -63,7 +73,7 @@ public class DiskFileItemSerializeTest {
         compareBytes("Initial", item.get(), testFieldValueBytes);
 
         // Serialize & Deserialize
-        FileItem newItem = (FileItem)serializeDeserialize(item);
+        FileItem newItem =  (FileItem)serializeDeserialize(item);
 
         // Test deserialized content is as expected
         assertTrue("Check in memory", newItem.isInMemory());
@@ -154,13 +164,19 @@ public class DiskFileItemSerializeTest {
     /**
      * Test deserialization fails when repository contains a null character.
      */
-    @Test(expected=IOException.class)
+    @Test
     public void testInvalidRepositoryWithNullChar() throws Exception {
+        System.clearProperty(DiskFileItem.SERIALIZABLE_PROPERTY);
         // Create the FileItem
         byte[] testFieldValueBytes = createContentBytes(threshold);
         File repository = new File(System.getProperty("java.io.tmpdir") + "\0");
         FileItem item = createFileItem(testFieldValueBytes, repository);
-        deserialize(serialize(item));
+        try {
+        	deserialize(serialize(item));
+        	fail("Expected Exception");
+        } catch (IllegalStateException e) {
+        	assertEquals(ERRMSG_DISKFILEITEM_DESERIALIZED, e.getMessage());
+        }
     }
 
     /**
