@@ -25,6 +25,7 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 
 import org.apache.commons.fileupload.FileUploadBase.FileUploadIOException;
+import org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException;
 import org.apache.commons.fileupload.util.Closeable;
 import org.apache.commons.fileupload.util.Streams;
 
@@ -263,6 +264,11 @@ public class MultipartStream {
      */
     private final ProgressNotifier notifier;
 
+    /**
+     * The maximum permitted size of the headers provided with a single part in bytes.
+     */
+    private int partHeaderSizeMax = FileUploadBase.DEFAULT_PART_HEADER_SIZE_MAX;
+
     // ----------------------------------------------------------- Constructors
 
     /**
@@ -408,6 +414,24 @@ public class MultipartStream {
     }
 
     /**
+     * Obtain the per part size limit for headers.
+     *
+     * @return The maximum size of the headers for a single part in bytes.
+     */
+    public int getPartHeaderSizeMax() {
+        return partHeaderSizeMax;
+    }
+
+    /**
+     * Sets the per part size limit for headers.
+     *
+     * @param partHeaderSizeMax The maximum size of the headers in bytes.
+     */
+    public void setPartHeaderSizeMax(int partHeaderSizeMax) {
+        this.partHeaderSizeMax = partHeaderSizeMax;
+    }
+
+    /**
      * Reads a byte from the <code>buffer</code>, and refills it as
      * necessary.
      *
@@ -539,10 +563,12 @@ public class MultipartStream {
             } catch (IOException e) {
                 throw new MalformedStreamException("Stream ended unexpectedly");
             }
-            if (++size > HEADER_PART_SIZE_MAX) {
-                throw new MalformedStreamException(
+            size++;
+            if (getPartHeaderSizeMax() != -1 && size > getPartHeaderSizeMax()) {
+                throw new FileUploadIOException(new SizeLimitExceededException(
                         format("Header section has more than %s bytes (maybe it is not properly terminated)",
-                               Integer.valueOf(HEADER_PART_SIZE_MAX)));
+                               Integer.valueOf(getPartHeaderSizeMax())),
+                                size, getPartHeaderSizeMax()));
             }
             if (b == HEADER_SEPARATOR[i]) {
                 i++;
